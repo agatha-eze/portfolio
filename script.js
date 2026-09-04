@@ -90,7 +90,8 @@ function animateGlow() {
 }
 animateGlow();
 
-document.querySelectorAll('a, button, .service-card, .about-card, .skill-card, .cert-card, .testimonial-card, .work-card').forEach((el) => {
+// Add cursor effects to all interactive elements including WhatsApp button
+document.querySelectorAll('a, button, .service-card, .about-card, .skill-card, .cert-card, .testimonial-card, .work-card, .whatsapp-float, .back-to-top').forEach((el) => {
     el.addEventListener('mouseenter', () => {
         glow.classList.add('hover');
         dot.classList.add('hover');
@@ -426,7 +427,7 @@ if (nextBtn) nextBtn.addEventListener('click', () => { nextSlide(); resetAutoSli
 document.addEventListener('DOMContentLoaded', initCarousel);
 
 // =============================================
-// BACK TO TOP
+// BACK TO TOP BUTTON
 // =============================================
 const backToTopBtn = document.getElementById('backToTop');
 
@@ -440,6 +441,59 @@ window.addEventListener('scroll', () => {
 
 backToTopBtn.addEventListener('click', () => {
     lenis.scrollTo(0, { duration: 1.2, offset: 0 });
+});
+
+// =============================================
+// FLOATING WHATSAPP BUTTON (Bottom-Left)
+// =============================================
+const whatsappBtn = document.getElementById('whatsappFloat');
+const phoneNumber = '2349069314582';
+const whatsappMessage = 'Hi Dr. Agatha! I saw your portfolio and would like to book a consultation.';
+
+// Show/hide WhatsApp button on scroll (same as Back to Top)
+window.addEventListener('scroll', () => {
+    if (window.scrollY > 400) {
+        whatsappBtn.classList.add('visible');
+        // Add pulse animation when first appears
+        if (!whatsappBtn.dataset.pulsed) {
+            whatsappBtn.classList.add('pulse');
+            whatsappBtn.dataset.pulsed = 'true';
+        }
+    } else {
+        whatsappBtn.classList.remove('visible');
+        whatsappBtn.classList.remove('pulse');
+    }
+});
+
+// Open WhatsApp when clicked
+whatsappBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    const url = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(whatsappMessage)}`;
+    window.open(url, '_blank');
+});
+
+// =============================================
+// MAGNETIC EFFECT FOR WHATSAPP BUTTON
+// =============================================
+whatsappBtn.addEventListener('mousemove', (e) => {
+    const rect = whatsappBtn.getBoundingClientRect();
+    const x = e.clientX - rect.left - rect.width / 2;
+    const y = e.clientY - rect.top - rect.height / 2;
+    gsap.to(whatsappBtn, {
+        x: x * 0.15,
+        y: y * 0.15,
+        duration: 0.4,
+        ease: 'power2.out',
+    });
+});
+
+whatsappBtn.addEventListener('mouseleave', () => {
+    gsap.to(whatsappBtn, {
+        x: 0,
+        y: 0,
+        duration: 0.6,
+        ease: 'elastic.out(1, 0.3)',
+    });
 });
 
 // =============================================
@@ -565,3 +619,5 @@ console.log('📋 Certifications: MBBS, HIPAA Professional, Medical Virtual Assi
 console.log('🔄 Work Samples: 6 tailored healthcare projects');
 console.log('📝 Formspree: Connected & ready');
 console.log('✨ Typewriter: Starts with "Medical Virtual Assistant"');
+console.log('💬 WhatsApp: Connected & ready at bottom-left');
+console.log('⬆️ Back to Top: Connected & ready at bottom-right');
