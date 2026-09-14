@@ -196,7 +196,7 @@ function animateStats() {
 animateStats();
 
 // =============================================
-// WORK CAROUSEL
+// WORK CAROUSEL (Infinite Auto-Scroll)
 // =============================================
 const workTrack = document.getElementById('workTrack');
 const workPrev = document.getElementById('workPrev');
@@ -309,7 +309,8 @@ if (workNext) {
 }
 
 // =============================================
-// TESTIMONIAL CAROUSEL
+// TESTIMONIAL CAROUSEL — Infinite Loop
+// 4 unique testimonials × 2 (duplicates) = 8 slides
 // =============================================
 const track = document.getElementById('testimonialTrack');
 const dotsContainer = document.getElementById('testimonialDots');
@@ -317,10 +318,12 @@ const prevBtn = document.getElementById('testimonialPrev');
 const nextBtn = document.getElementById('testimonialNext');
 
 let currentIndex = 0;
-let totalSlides = 0;
+let uniqueCount = 0;      // number of UNIQUE testimonials (4)
+let totalSlides = 0;      // total slides in DOM (8)
 let slidesPerView = 1;
 let autoSlideInterval = null;
 const autoSlideDelay = 4500;
+let isTransitioning = false;
 
 function getSlidesPerView() {
     if (window.innerWidth >= 992) return 3;
@@ -328,40 +331,47 @@ function getSlidesPerView() {
     return 1;
 }
 
-function updateCarousel() {
+function getCardMetrics() {
+    const cards = track.querySelectorAll('.testimonial-card');
+    if (!cards.length) return { cardWidth: 0, gap: 24, slideWidth: 0 };
+    const cardWidth = cards[0].offsetWidth || 0;
+    const gap = 24;
+    const slideWidth = cardWidth + gap;
+    return { cardWidth, gap, slideWidth };
+}
+
+function updateCarousel(instant = false) {
     slidesPerView = getSlidesPerView();
     const cards = track.querySelectorAll('.testimonial-card');
     totalSlides = cards.length;
 
-    if (currentIndex > totalSlides - slidesPerView) {
-        currentIndex = Math.max(0, totalSlides - slidesPerView);
-    }
-
-    const cardWidth = cards[0]?.offsetWidth || 0;
-    const gap = 24;
-    const slideWidth = cardWidth + gap;
+    const { slideWidth } = getCardMetrics();
     const offset = currentIndex * slideWidth;
 
-    gsap.to(track, {
-        x: -offset,
-        duration: 0.6,
-        ease: 'power3.out',
-    });
+    if (instant) {
+        gsap.set(track, { x: -offset });
+    } else {
+        gsap.to(track, {
+            x: -offset,
+            duration: 0.6,
+            ease: 'power3.out',
+        });
+    }
 
+    // Update dots (only uniqueCount dots)
     const dots = dotsContainer.querySelectorAll('.dot');
-    const totalDots = Math.ceil(totalSlides / slidesPerView);
     dots.forEach((dot, idx) => {
-        dot.classList.toggle('active', idx === currentIndex);
+        dot.classList.toggle('active', idx === currentIndex % uniqueCount);
     });
 }
 
 function createDots() {
     const cards = track.querySelectorAll('.testimonial-card');
     totalSlides = cards.length;
-    const totalDots = Math.ceil(totalSlides / getSlidesPerView());
+    uniqueCount = totalSlides / 2; // because we duplicated the set
 
     dotsContainer.innerHTML = '';
-    for (let i = 0; i < totalDots; i++) {
+    for (let i = 0; i < uniqueCount; i++) {
         const dot = document.createElement('button');
         dot.className = `dot ${i === 0 ? 'active' : ''}`;
         dot.setAttribute('aria-label', `Go to testimonial ${i + 1}`);
@@ -375,16 +385,52 @@ function createDots() {
     }
 }
 
-function goToSlide(index) {
-    const totalDots = Math.ceil(totalSlides / getSlidesPerView());
-    if (index < 0) index = totalDots - 1;
-    if (index >= totalDots) index = 0;
-    currentIndex = index;
+function nextSlide() {
+    if (isTransitioning) return;
+
+    // If we're at the last unique slide, jump forward into the duplicate zone,
+    // then reset to the beginning seamlessly.
+    if (currentIndex >= uniqueCount) {
+        // jump back to equivalent position at start of first set (no animation)
+        currentIndex = currentIndex - uniqueCount;
+        updateCarousel(true);
+        // force reflow so next animation is smooth
+        void track.offsetWidth;
+    }
+
+    currentIndex++;
+    isTransitioning = true;
     updateCarousel();
+
+    // After the slide finishes, if we've now entered the duplicate set,
+    // silently reset to the equivalent position in the first set.
+    setTimeout(() => {
+        if (currentIndex >= uniqueCount) {
+            currentIndex = currentIndex - uniqueCount;
+            updateCarousel(true);
+        }
+        isTransitioning = false;
+    }, 650);
 }
 
-function nextSlide() { goToSlide(currentIndex + 1); }
-function prevSlide() { goToSlide(currentIndex - 1); }
+function prevSlide() {
+    if (isTransitioning) return;
+
+    if (currentIndex <= 0) {
+        // jump forward into the duplicate set, then animate backwards
+        currentIndex = currentIndex + uniqueCount;
+        updateCarousel(true);
+        void track.offsetWidth;
+    }
+
+    currentIndex--;
+    isTransitioning = true;
+    updateCarousel();
+
+    setTimeout(() => {
+        isTransitioning = false;
+    }, 650);
+}
 
 function startAutoSlide() {
     if (autoSlideInterval) clearInterval(autoSlideInterval);
@@ -401,10 +447,11 @@ function resetAutoSlide() {
 function initCarousel() {
     createDots();
     currentIndex = 0;
-    updateCarousel();
+    updateCarousel(true);
     startAutoSlide();
 }
 
+// Recalculate on resize
 let resizeTimeout;
 window.addEventListener('resize', () => {
     clearTimeout(resizeTimeout);
@@ -413,16 +460,27 @@ window.addEventListener('resize', () => {
         if (newSlidesPerView !== slidesPerView) {
             createDots();
             currentIndex = 0;
-            updateCarousel();
+            updateCarousel(true);
             resetAutoSlide();
         } else {
-            updateCarousel();
+            updateCarousel(true);
         }
     }, 200);
 });
 
 if (prevBtn) prevBtn.addEventListener('click', () => { prevSlide(); resetAutoSlide(); });
 if (nextBtn) nextBtn.addEventListener('click', () => { nextSlide(); resetAutoSlide(); });
+
+// Pause auto-slide on hover
+const testimonialWrapper = track.closest('.testimonial-carousel-wrapper');
+if (testimonialWrapper) {
+    testimonialWrapper.addEventListener('mouseenter', () => {
+        if (autoSlideInterval) clearInterval(autoSlideInterval);
+    });
+    testimonialWrapper.addEventListener('mouseleave', () => {
+        startAutoSlide();
+    });
+}
 
 document.addEventListener('DOMContentLoaded', initCarousel);
 
